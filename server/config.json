@@ -1,0 +1,9 @@
+{
+	"FakeWebURL" : "https://break.com/",
+	"FrontedListenAddr" : ":443",
+	"Channel" : "cc7aff1d-ef9c-4cf1-b2d8-c0dd83f0ff16",
+	"Clients" : [
+         {"ID": "a5f8f489-de00-4865-8263-9b7e04e0f252", "ListenAddr":"127.0.0.1:7001"},
+         {"ID": "a7ea4655-1dd1-2964-1444-341067dfd885", "ListenAddr":"127.0.0.1:7002"}
+        ]
+}
