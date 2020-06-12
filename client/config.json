@@ -1,7 +1,7 @@
 {
 	"AutoStart" : true,
 	"ListenAddr" : ":1080",
-	"ServerAddr": "104.243.21.194:443",
+	"ServerAddr": "176.122.155.167:443",
 	"Channel" : "cc7aff1d-ef9c-4cf1-b2d8-c0dd83f0ff16",
 	"Client" : "a5f8f489-de00-4865-8263-9b7e04e0f252",
 	"FakeWebDomain" : "break.com"
