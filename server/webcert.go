@@ -9,10 +9,10 @@ import (
 )
 
 type webCert struct {
-	webAddr         string
-	mutex           sync.Mutex
-	certExpiresTime time.Time
-	cert            *faketls.Certificate
+	webAddr      string
+	mutex        sync.Mutex
+	certNotAfter time.Time
+	cert         *faketls.Certificate
 }
 
 func (p *webCert) updateWebCert() (version uint16, err error) {
@@ -22,15 +22,15 @@ func (p *webCert) updateWebCert() (version uint16, err error) {
 	}
 
 	p.mutex.Lock()
-	update := true
+	update := false
 	if p.cert != nil {
-		if p.certExpiresTime.Before(certNotAfter) {
-			update = false
+		if certNotAfter.After(p.certNotAfter) {
+			update = true
 		}
 	}
 	if update {
 		p.cert = cert
-		p.certExpiresTime = certNotAfter
+		p.certNotAfter = certNotAfter
 	}
 	p.mutex.Unlock()
 
@@ -52,12 +52,12 @@ func (p *webCert) checkUpdateOnTimer() {
 	}
 }
 
-func getTLSCert(webAddr string) (cert *faketls.Certificate, expiresTime time.Time, version uint16, err error) {
+func getTLSCert(webAddr string) (cert *faketls.Certificate, certNotAfter time.Time, version uint16, err error) {
 
 	config := &tls.Config{InsecureSkipVerify: true}
 	conn, err := tls.Dial("tcp", webAddr, config)
 	if err != nil {
-		return cert, expiresTime, version, err
+		return cert, certNotAfter, version, err
 	}
 	state := conn.ConnectionState()
 	conn.Close()
@@ -73,9 +73,9 @@ func getTLSCert(webAddr string) (cert *faketls.Certificate, expiresTime time.Tim
 	}
 
 	if len(state.PeerCertificates) > 0 {
-		expiresTime = state.PeerCertificates[0].NotAfter
+		certNotAfter = state.PeerCertificates[0].NotAfter
 	}
 	version = state.Version
 
-	return cert, expiresTime, version, err
+	return cert, certNotAfter, version, err
 }
