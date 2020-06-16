@@ -23,8 +23,8 @@ func (p *webCert) updateWebCert() (version uint16, err error) {
 
 	p.mutex.Lock()
 	update := false
-	if p.cert != nil {
-		if certNotAfter.After(p.certNotAfter) {
+	if cert != nil {
+		if p.cert == nil || certNotAfter.After(p.certNotAfter) {
 			update = true
 		}
 	}
