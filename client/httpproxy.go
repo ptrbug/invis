@@ -10,16 +10,16 @@ import (
 	"github.com/ptrbug/invis/proto"
 )
 
-func handleHTTPRequest(conn net.Conn, firstPacket []byte, firstPacketLength int) {
+func handleHTTPRequest(conn net.Conn, firstPacket []byte) {
 	defer conn.Close()
 
 	var method, rawurl, host string
 	var port int
-	index := bytes.IndexByte(firstPacket[proto.HeadLength:], '\n')
+	index := bytes.IndexByte(firstPacket, '\n')
 	if index == -1 {
 		return
 	}
-	fmt.Sscanf(string(firstPacket[proto.HeadLength:]), "%s%s", &method, &rawurl)
+	fmt.Sscanf(string(firstPacket), "%s%s", &method, &rawurl)
 	if method == "CONNECT" {
 		xhost, xport, err := net.SplitHostPort(rawurl)
 		if err != nil {
@@ -63,19 +63,25 @@ func handleHTTPRequest(conn net.Conn, firstPacket []byte, firstPacketLength int)
 	if method == "CONNECT" {
 		fmt.Fprint(conn, "HTTP/1.1 200 Connection established\r\n\r\n")
 	} else {
+		var header [proto.HeadLength]byte
 		head := proto.MessageHead{}
 		head.StreamType = proto.STREAM_DATA
 		head.ProtoType = proto.TCP_PROTO
 		head.StreamID = streamID
-		head.BodyLength = uint16(firstPacketLength)
-		head.Encode(firstPacket[0:proto.HeadLength])
-		err := sess.writeServer(firstPacket[:proto.HeadLength+firstPacketLength])
+		head.BodyLength = uint16(len(firstPacket))
+		head.Encode(header[:])
+		err := sess.writeServer(header[:])
+		if err != nil {
+			return
+		}
+		err = sess.writeServer(firstPacket)
 		if err != nil {
 			return
 		}
 	}
 
-	buffer := firstPacket[:]
+	buffer := make([]byte, proto.MaxMessageSize)
+
 	for {
 		n, err := conn.Read(buffer[proto.HeadLength:])
 		if err != nil {

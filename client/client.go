@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ptrbug/invis/crypto"
-	"github.com/ptrbug/invis/proto"
 )
 
 type appConfig struct {
@@ -88,16 +87,16 @@ func main() {
 }
 
 func handleClientRequest(conn net.Conn) {
-	firstPacket := make([]byte, proto.MaxMessageSize)
-	firstPacketLength, err := conn.Read(firstPacket[proto.HeadLength:])
+	firstPacket := make([]byte, 4096)
+	n, err := conn.Read(firstPacket)
 	if err != nil {
 		return
 	}
 
-	if firstPacket[proto.HeadLength] == 5 && firstPacketLength >= 3 {
-		handleSocks5Request(conn, firstPacket, firstPacketLength)
+	if firstPacket[0] == 5 && n >= 3 {
+		//handleSocks5Request(conn, firstPacket[0:n])
 
 	} else {
-		handleHTTPRequest(conn, firstPacket, firstPacketLength)
+		handleHTTPRequest(conn, firstPacket[0:n])
 	}
 }
