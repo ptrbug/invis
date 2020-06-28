@@ -94,7 +94,7 @@ func handleClientRequest(conn net.Conn) {
 	}
 
 	if firstPacket[0] == 5 && n >= 3 {
-		//handleSocks5Request(conn, firstPacket[0:n])
+		handleSocks5Request(conn, firstPacket[0:n])
 
 	} else {
 		handleHTTPRequest(conn, firstPacket[0:n])
