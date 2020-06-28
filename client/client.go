@@ -1,16 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/google/uuid"
 	"github.com/ptrbug/invis/crypto"
@@ -83,100 +79,25 @@ func main() {
 	loger.Printf("server started, listen on %v\n", config.ListenAddr)
 
 	for {
-		client, err := l.Accept()
+		conn, err := l.Accept()
 		if err != nil {
 			loger.Fatal(err)
 		}
-		go handleHTTPRequest(client)
+		go handleClientRequest(conn)
 	}
 }
 
-func handleHTTPRequest(conn net.Conn) {
-	defer conn.Close()
-
-	var buffer [proto.MaxMessageSize]byte
-	n, err := conn.Read(buffer[proto.HeadLength:])
-	if err != nil {
-		return
-	}
-	var method, rawurl, host string
-	var port int
-	index := bytes.IndexByte(buffer[proto.HeadLength:], '\n')
-	if index == -1 {
-		return
-	}
-	fmt.Sscanf(string(buffer[proto.HeadLength:]), "%s%s", &method, &rawurl)
-	if method == "CONNECT" {
-		xhost, xport, err := net.SplitHostPort(rawurl)
-		if err != nil {
-			return
-		}
-		host = xhost
-		port, err = strconv.Atoi(xport)
-		if err != nil {
-			return
-		}
-	} else {
-		URL, err := url.Parse(rawurl)
-		if err != nil {
-			return
-		}
-
-		xhost, xport, err := net.SplitHostPort(URL.Host)
-		if err != nil {
-			host = URL.Host
-			port = 80
-		} else {
-			host = xhost
-			port, err = strconv.Atoi(xport)
-			if err != nil {
-				return
-			}
-		}
-	}
-
-	sess, streamID := pool.getSessonAndStream(conn)
-	if sess == nil {
-		return
-	}
-	defer sess.delStream(streamID)
-
-	err = sess.writeServerStreamNew(host, uint16(port), streamID)
+func handleClientRequest(conn net.Conn) {
+	firstPacket := make([]byte, proto.MaxMessageSize)
+	firstPacketLength, err := conn.Read(firstPacket[proto.HeadLength:])
 	if err != nil {
 		return
 	}
 
-	if method == "CONNECT" {
-		fmt.Fprint(conn, "HTTP/1.1 200 Connection established\r\n\r\n")
+	if firstPacket[proto.HeadLength] == 5 && firstPacketLength >= 3 {
+		handleSocks5Request(conn, firstPacket, firstPacketLength)
+
 	} else {
-		head := proto.MessageHead{}
-		head.StreamType = proto.STREAM_DATA
-		head.ProtoType = proto.TCP_PROTO
-		head.StreamID = streamID
-		head.BodyLength = uint16(n)
-		head.Encode(buffer[0:proto.HeadLength])
-		err := sess.writeServer(buffer[:proto.HeadLength+n])
-		if err != nil {
-			return
-		}
-	}
-
-	for {
-		n, err := conn.Read(buffer[proto.HeadLength:])
-		if err != nil {
-			sess.writeServerStreamDel(streamID)
-			return
-		}
-
-		head := proto.MessageHead{}
-		head.StreamType = proto.STREAM_DATA
-		head.ProtoType = proto.TCP_PROTO
-		head.StreamID = streamID
-		head.BodyLength = uint16(n)
-		head.Encode(buffer[0:proto.HeadLength])
-		err = sess.writeServer(buffer[:proto.HeadLength+n])
-		if err != nil {
-			return
-		}
+		handleHTTPRequest(conn, firstPacket, firstPacketLength)
 	}
 }
