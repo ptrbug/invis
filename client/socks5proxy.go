@@ -36,14 +36,14 @@ func readAddr(r *bufio.Reader) (*proto.SOCKS5Address, bool) {
 		if _, err := io.ReadAtLeast(r, addr, len(addr)); err != nil {
 			return nil, false
 		}
-		d.Address = net.IP(addr).String()
+		d.IP = net.IP(addr)
 
 	case proto.IPv6:
 		addr := make([]byte, 16)
 		if _, err := io.ReadAtLeast(r, addr, len(addr)); err != nil {
 			return nil, false
 		}
-		d.Address = net.IP(addr).String()
+		d.IP = net.IP(addr)
 
 	case proto.DOMAINNAME:
 		if _, err := r.Read(addrType); err != nil {
@@ -54,7 +54,7 @@ func readAddr(r *bufio.Reader) (*proto.SOCKS5Address, bool) {
 		if _, err := io.ReadAtLeast(r, fqdn, addrLen); err != nil {
 			return nil, false
 		}
-		d.Address = string(fqdn)
+		d.FQDN = string(fqdn)
 
 	default:
 		return nil, false
@@ -109,7 +109,7 @@ func handleSocks5Request(conn net.Conn, firstPacket []byte) {
 	}
 	defer sess.delStream(streamID)
 
-	err := sess.writeServerStreamNewWithAddr(address, streamID)
+	err := sess.writeServerStreamNew(address, streamID)
 	if err != nil {
 		return
 	}

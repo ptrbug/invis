@@ -55,7 +55,11 @@ func handleHTTPRequest(conn net.Conn, firstPacket []byte) {
 	}
 	defer sess.delStream(streamID)
 
-	err := sess.writeServerStreamNew(host, uint16(port), streamID)
+	addr := &proto.SOCKS5Address{}
+	addr.AddressType = proto.DOMAINNAME
+	addr.FQDN = host
+	addr.Port = uint16(port)
+	err := sess.writeServerStreamNew(addr, streamID)
 	if err != nil {
 		return
 	}

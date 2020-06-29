@@ -74,15 +74,7 @@ func (sess *session) writeServerStreamDel(streamID uint16) error {
 	return sess.writeServer(buffer[:])
 }
 
-func (sess *session) writeServerStreamNew(host string, port uint16, streamID uint16) error {
-	addr := &proto.SOCKS5Address{}
-	addr.AddressType = proto.DOMAINNAME
-	addr.Address = host
-	addr.Port = port
-	return sess.writeServerStreamNewWithAddr(addr, streamID)
-}
-
-func (sess *session) writeServerStreamNewWithAddr(addr *proto.SOCKS5Address, streamID uint16) error {
+func (sess *session) writeServerStreamNew(addr *proto.SOCKS5Address, streamID uint16) error {
 	data := make([]byte, proto.MaxMessageSize)
 	length, err := addr.Encode(data[proto.HeadLength:])
 	if err != nil {
