@@ -8,15 +8,15 @@ import (
 	"github.com/ptrbug/invis/proto"
 )
 
+const (
+	socks5Version = uint8(5)
+)
+
 //cmd type
 const (
 	ConnectCommand   = uint8(1)
 	BindCommand      = uint8(2)
 	AssociateCommand = uint8(3)
-)
-
-const (
-	socks5Version = uint8(5)
 )
 
 const (
