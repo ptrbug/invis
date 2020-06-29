@@ -100,6 +100,14 @@ func handleSocks5Request(conn net.Conn, firstPacket []byte) {
 	if !ok {
 		return
 	}
+
+	/*
+		+----+-----+-------+------+----------+----------+
+		|VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
+		+----+-----+-------+------+----------+----------+
+		| 1  |  1  | X'00' |  1   | Variable |    2     |
+		+----+-----+-------+------+----------+----------+
+	*/
 	resp := []byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	conn.Write(resp)
 
