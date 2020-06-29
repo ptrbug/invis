@@ -27,7 +27,7 @@
 	"FakeWebURL" : "https://break.com/",    //这是填你要伪造网站的域名  
 	"FrontedListenAddr" : ":443",           //对外监听端口  
 	"Channel" : "cc7aff1d-ef9c-4cf1-b2d8-c0dd83f0ff16", //通信uuid  
-	"Clients" : [
+	"Clients" : [  
         //用户uuid和对应的内部监听地址, 根据不同用户uuid, 将端口443的数据转发到相应的端口。  
          {"ID": "a5f8f489-de00-4865-8263-9b7e04e0f252", "ListenAddr":"127.0.0.1:7001"},   
          {"ID": "a7ea4655-1dd1-2964-1444-341067dfd885", "ListenAddr":"127.0.0.1:7002"}  
