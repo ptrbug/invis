@@ -1,18 +1,41 @@
 package main
 
 import (
-	"bufio"
+	"fmt"
 	"io"
 	"net"
 
 	"github.com/ptrbug/invis/proto"
 )
 
+//cmd type
+const (
+	ConnectCommand   = uint8(1)
+	BindCommand      = uint8(2)
+	AssociateCommand = uint8(3)
+)
+
+const (
+	socks5Version = uint8(5)
+)
+
+const (
+	successReply uint8 = iota
+	serverFailure
+	ruleFailure
+	networkUnreachable
+	hostUnreachable
+	connectionRefused
+	ttlExpired
+	commandNotSupported
+	addrTypeNotSupported
+)
+
 func handShake(conn net.Conn, version byte, numMethods int, methods []byte) bool {
-	if version != 5 {
+	if version != socks5Version {
 		return false
 	}
-	resp := []byte{5, 0}
+	resp := []byte{socks5Version, 0}
 	_, err := conn.Write(resp)
 	if err != nil {
 		return false
@@ -20,7 +43,7 @@ func handShake(conn net.Conn, version byte, numMethods int, methods []byte) bool
 	return true
 }
 
-func readAddr(r *bufio.Reader) (*proto.SOCKS5Address, bool) {
+func readAddr(r io.Reader) (*proto.SOCKS5Address, bool) {
 	d := &proto.SOCKS5Address{}
 
 	addrType := []byte{0}
@@ -70,11 +93,58 @@ func readAddr(r *bufio.Reader) (*proto.SOCKS5Address, bool) {
 	return d, true
 }
 
+// sendReply is used to send a reply message
+func sendReply(w io.Writer, resp uint8, d *proto.SOCKS5Address) error {
+	// Format the address
+	var addrType uint8
+	var addrBody []byte
+	var addrPort uint16
+	switch {
+	case d == nil:
+		addrType = byte(proto.IPv4)
+		addrBody = []byte{0, 0, 0, 0}
+		addrPort = 0
+
+	case d.AddressType == proto.DOMAINNAME:
+		addrType = byte(d.AddressType)
+		addrBody = append([]byte{byte(len(d.FQDN))}, d.FQDN...)
+		addrPort = d.Port
+
+	case d.AddressType == proto.IPv4:
+		addrType = byte(d.AddressType)
+		addrBody = []byte(d.IP.To4())
+		addrPort = d.Port
+
+	case d.AddressType == proto.IPv6:
+		addrType = byte(d.AddressType)
+		addrBody = []byte(d.IP.To16())
+		addrPort = d.Port
+
+	default:
+		return fmt.Errorf("Failed to format address: %v", d)
+	}
+
+	// Format the message
+	msg := make([]byte, 6+len(addrBody))
+	msg[0] = socks5Version
+	msg[1] = resp
+	msg[2] = 0 // Reserved
+	msg[3] = addrType
+	copy(msg[4:], addrBody)
+	msg[4+len(addrBody)] = byte(addrPort >> 8)
+	msg[4+len(addrBody)+1] = byte(addrPort & 0xff)
+
+	// Send the message
+	_, err := w.Write(msg)
+	return err
+}
+
 func handleSocks5Request(conn net.Conn, firstPacket []byte) {
 	defer conn.Close()
 
+	//handshake
 	version := firstPacket[0]
-	if version != 5 {
+	if version != socks5Version {
 		return
 	}
 	numMethods := int(firstPacket[1])
@@ -85,43 +155,43 @@ func handleSocks5Request(conn net.Conn, firstPacket []byte) {
 		return
 	}
 
-	r := bufio.NewReader(conn)
-
+	//command
 	header := []byte{0, 0, 0}
-	if _, err := io.ReadAtLeast(r, header, 3); err != nil {
+	if _, err := io.ReadAtLeast(conn, header, 3); err != nil {
 		return
 	}
-
-	if header[0] != 5 && header[1] != 1 {
+	if header[0] != socks5Version {
 		return
 	}
+	cmd := header[1]
+	if cmd != ConnectCommand {
+		sendReply(conn, commandNotSupported, nil)
+	}
 
-	address, ok := readAddr(r)
+	address, ok := readAddr(conn)
 	if !ok {
+		sendReply(conn, addrTypeNotSupported, nil)
 		return
 	}
-
-	/*
-		+----+-----+-------+------+----------+----------+
-		|VER | REP |  RSV  | ATYP | BND.ADDR | BND.PORT |
-		+----+-----+-------+------+----------+----------+
-		| 1  |  1  | X'00' |  1   | Variable |    2     |
-		+----+-----+-------+------+----------+----------+
-	*/
-	resp := []byte{0x05, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-	conn.Write(resp)
 
 	sess, streamID := pool.getSessonAndStream(conn)
 	if sess == nil {
+		sendReply(conn, hostUnreachable, nil)
 		return
 	}
 	defer sess.delStream(streamID)
 
-	err := sess.writeServerStreamNew(address, streamID)
+	err := sendReply(conn, successReply, address)
 	if err != nil {
 		return
 	}
 
+	err = sess.writeServerStreamNew(address, streamID)
+	if err != nil {
+		return
+	}
+
+	//forward
 	buffer := make([]byte, proto.MaxMessageSize)
 
 	for {
