@@ -32,4 +32,12 @@
          {"ID": "a5f8f489-de00-4865-8263-9b7e04e0f252", "ListenAddr":"127.0.0.1:7001"},   
          {"ID": "a7ea4655-1dd1-2964-1444-341067dfd885", "ListenAddr":"127.0.0.1:7002"}  
         ]
-}
+}  
+编译:  
+=======
+编译windows版 需要下载安装 TDM-GCC, 下载地址:https://jmeubank.github.io/tdm-gcc/  
+cd server  
+go build  
+cd ../client  
+go build 或 go build -ldflags "-H windowsgui" (编译windows版，隐藏console窗口)
+ 
