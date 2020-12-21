@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/ptrbug/invis/client/crash"
 	"github.com/ptrbug/invis/crypto"
 )
 
@@ -24,6 +25,13 @@ type appConfig struct {
 var loger *log.Logger
 var config appConfig
 var pool *sessionPool
+
+func init() {
+	err := crash.InitPanicFile("panic.log")
+	if err != nil {
+		loger.Fatal("InitPanicFile error", err)
+	}
+}
 
 func main() {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
